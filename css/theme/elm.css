@@ -20,7 +20,7 @@ html * {
 /*********************************************
  * GLOBAL STYLES
  *********************************************/
-body {
+body, .reveal-viewport {
   background: #60B5CC;
   background-color: #60B5CC; }
 

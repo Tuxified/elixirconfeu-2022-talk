@@ -598,8 +598,10 @@ https://github.com/Tuxified/elixirconfeu-2022-talk
       </div>
     </div>
 
-    <script src="lib/js/head.min.js"></script>
     <script src="js/reveal.js"></script>
+    <script src="plugin/notes/notes.js"></script>
+    <script src="plugin/markdown/markdown.js"></script>
+    <script src="plugin/highlight/highlight.js"></script>
 
     <script>
       // More info https://github.com/hakimel/reveal.js#configuration
@@ -608,13 +610,7 @@ https://github.com/Tuxified/elixirconfeu-2022-talk
         history: true,
         controls: false,
 
-        // More info https://github.com/hakimel/reveal.js#dependencies
-        dependencies: [
-          { src: 'plugin/markdown/marked.js' },
-          { src: 'plugin/markdown/markdown.js' },
-          { src: 'plugin/notes/notes.js', async: true },
-          { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
-        ]
+         plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
       });
     </script>
   </body>
