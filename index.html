@@ -37,6 +37,16 @@
         width: 300px;
         height: 50px;
       }
+       .bottom-right-corner {
+        margin: 25px;
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        display: block;
+        width: 100px;
+        height: 40px;
+      }
+
     </style>
   </head>
   <body>
@@ -60,14 +70,528 @@
       <img src="images/ElixirConfEU-forwhitebackgrounds.png" width="250">
       @Tuxified - Tonći Galić
     </div>
+
+    <div class="bottom-right-corner">
+      <img src="images/xpay_logo.png" width="100">
+    </div>
     <div class="reveal">
       <div class="slides">
         <section data-markdown  data-separator="---\r?\n"  data-separator-vertical="\+\+\+\r?\n" data-separator-notes="^note:" data-charset="utf-8">
           <script type="text/template">
+# Automating the automator
 
-## Agenda
+---
 
-- placeholder
+
+# Agenda
+
+- what we won't talk about
+- TL;DR: 
+
++++
+
+## TL;DR:
+
+```
+source 
+|> Code.parse_to_AST() 
+|> Code.transform() 
+|> Code.to_source()
+```
+
+---
+
+# "Horror" story
+
+Intro actually
+
+note:
+
+- working +20 as dev
+- started out as a "webmaster" -> data entry
+- "it's always about people"
+- let machine work for you, not other way around
+
+
++++
+
+<img src=images/html.jpg class="plain" />
+
++++
+
+# Make it so
+
+<img src="images/make-it-so-picard.gif" />
+
+note:
+
+- enjoy solving problems, not being a code monkey
+
+---
+
+# In the year 2 B.C.
+
+(B.C. = before covid)
+
+There was a meetup in Amsterdam
+
++++
+
+<img src=images/elixir_drink.jpeg />
+
+note:
+
+- hackathon/coding meetup
+- tried to automatically handle last elixir changes
+- for example to_charlist -> to_char_list; Enum.filter_map -> Enum.filter |> Enum.map
+
++++
+
+String.to_char_list deprecated in favor of String.to_charlist
+
+<img src="images/make-it-so-picard.gif" /><!-- .element: class="fragment" data-fragment-index="1" -->
+
++++
+
+string manipulation doesn't cut it
+
++++
+
+`Enum.filter_map/2` deprecated in favor of `Enum.filter |> Enum.map`
+
+making meaningfull changes ?
+
+---
+
+# First let's talk about
+
++++
+
+How does the compiler make sense of our code?
+
++++
+
+# AST
+
+__A__bstract __S__yntax __T__ree
+
+note:
+
+- first parse into tokens
+- then transform into a tree with some meaning
+- AST is source code in Elixir data structure
+
++++
+
+```elixir
+sum(1, 3)
+
+quote do
+  sum(1, 3)
+end
+> {:sum, [], [1, 2]}
+```
+
++++
+
+## Similar to DOM
+
+```elixir
+{:sum, [line: 1, column: 1], [1, 2]}
+```
+
+```html
+<sum line=1 column=1>
+  <integer value=1 />
+  <integer value=2 />
+</sum>
+```
+
+---
+
+# Source -> AST -> fix_it -> Source
+
+a.k.a. "CodeMod"
+
+
++++
+
+```elixir
+def patch_it(file)do
+  contents = File.read!(file)
+  {:ok, ast} = Code.string_to_quoted(contents)
+  patched_ast = Macro.postwalk(ast, &fix_it/1)
+  Macro.to_string(patched_ast) |> IO.puts()
+end
+
+defp fix_it({:to_char_list, meta, args}), do: {:to_charlist, meta, args}
+defp fix_it(ast), do: ast
+```
+
++++
+
+```
+defmodule Test do
+  # Here be dragons
+  def listify(data) do
+    to_char_list(data)
+  end
+end
+```
+
++++
+
+```
+defmodule(Test) do
+  def(listify(data)) do
+    to_char_list(data)
+  end
+end
+```
+
+note:
+
+- comments missing as compiler doesn't use it
+- formatter won't help as it doesn't look beyond tokens
+- anno 2022 output will differ
+
++++
+
+# What gives
+
+- comments are irrelevant for working of your code
+- Macro.to_string doesn't do formatting
+- Formatter does look at meaning of your code (only pretty print tokens)
+
++++
+
+Arjan gives a talk at ElixirConfEU 2019:
+The Elixir parser under the microscope
+
+---
+
+# Dorgan (Lucas San Román) to the rescue
+<img src="images/dorgan_avatar.png" height=100 />
+
+
+Elixir 1.13 introduces:
+- Code.string_to_quoted_with_comments/2
+- Code.quoted_to_algebra/2
+
+note:
+
+- first one preserves comments in metadata (and other details)
+- second turn any AST in algebra document (that formatter needs)
+
++++
+
+## And creates Sourceror package
+
+<img src="images/excited-picard.gif" class=plain />
+
++++
+
+```
+unless !allowed? do
+  proceed_as_planned()
+end
+```
+
++++
+
+```elixir
+source
+|> Sourceror.parse_string!()
+|> DoubleNegation.to_if()
+|> Sourceror.to_string()
+```
+
+note:
+
+- this walks entire file/source
+- Sourceror can only use patches to only produce string replacements for specific parts of code (lines 4 - 7)
+- Sourceror can also work with Zipper if one wants to walk around the AST more manually
+
++++
+
+```
+defmodule DoubleNegation do
+  def to_if(quoted) do
+    Macro.postwalk(quoted, fn
+      {:unless, meta, [{:!, _, left} | rest]} ->
+        {:if, meta, left ++ rest}
+
+      other_quoted ->
+        other_quoted
+    end)
+  end
+end
+```
+
+---
+
+# Examples of Usage
+
++++
+
+## Don't make me think (/work)
+
+- `mix phx.gen.live ...` -> automatically add routes to router
+
++++
+
+- `mix phx.mod.add.live Accounts Users user address:string` -> modify current stuff to add a field
+
+note:
+
+- build a blog in 15min is kinda standard
+- add in a comment section + user login with generators: awesome
+
++++
+
+### Refactoring tools
+
+- `mix credo suggest --autofix` -> automatically take care of as much of the code smells as possible
+
+... just like Rubocop
+
++++
+
+<img src=images/hades.gif class="pain" />
+
+
++++
+
+## Step 1 / 4
+
+in .credo.exs, add:
+
+```
+plugins: [ {Credo.Idefix.Plugin, []} ],
+```
+
++++
+
+## Step 2 / 4
+
+```elixir
+defmodule Credo.Idefix.Plugin do
+  import Credo.Plugin
+
+  @moduledoc """
+  Plugin that can be hooked into Credos pipeline to automatically fix some
+  issues. Info from:
+  - https://hexdocs.pm/credo/Credo.Plugin.html
+  - https://hexdocs.pm/credo/creating_plugins.html
+
+  """
+
+  def init(exec) do
+    exec
+    |> append_task(
+      Credo.CLI.Command.Suggest.SuggestCommand,
+      :filter_issues,
+      Credo.Idefix.Autocorrect
+    )
+  end
+end
+```
+
+
++++
+
+## Step 3 / 4
+
+
+```elixir
+defmodule Credo.Idefix.Autocorrect do
+  use Credo.Execution.Task
+
+  @fixable [
+    Credo.Check.Readability.SinglePipe,
+    Credo.Refactor.NegatedConditionsInUnless
+  ]
+
+  def call(exec, _opts) do
+    issues_list =  Execution.get_issues(exec)
+  
+    Enum.each(issues_list, fn
+      %Credo.Issue{check: check} = issue when check in @fixable ->
+        contents = File.read!(issue.filename)
+        # transfom code to ast
+        {:ok, ast} = Sourceror.parse_string(contents)
+
+        # walk the AST and transform it
+        nast = Sourceror.postwalk(ast , &apply_fixes/1)
+
+        # turn AST back to code
+        result = Sourceror.to_string(nast)
+
+
+        File.write(file, result)
+      _ ->
+        :noop
+    end)
+
+    exec
+  end
+end
+```
+
++++
+
+## Step 4 / 4
+
+
+```elixir
+defmodule Idefix.Readability.PipeIntoAnonymousFunctions do
+  @moduledoc """
+    Avoid piping into anonymous functions directly.
+    Example:
+        # preferred
+        def my_fun(foo) do
+          foo
+          |> then(fn i -> i * 2 end)
+          |> my_other_fun()
+        end
+
+        # NOT preferred
+        def my_fun(foo) do
+          foo
+          |> (fn i -> i * 2 end).()
+          |> my_other_fun()
+        end
+  """
+  def fix({:|>, meta, [prev, {{:., ameta, [{:fn, _, _} | _] = contents}, _, _}]}) do
+    {:|>, meta, [prev, {:then, ameta, contents}]}
+  end
+
+  def fix(ast), do: ast
+end
+
+```
+
++++
+
+## ease in switching to/using library
+
+- switch from "normal" Ecto schemas to Typed Schemas
+- `mix surface.init` -> changes modules so user/developer doesn't have to
+
++++
+
+## Improve editor tools
+
++++
+
+<img src=images/rename_symbol.gif class="plain" />
+
++++
+
+
+(take a look at Wrangler)
+
+```
+def loop_a
+  receive do
+    :stop -> 
+      :ok
+    {:msg, msg, 0} ->
+      loop_a()
+    {:msg, msg, n} ->
+      body(msg, n)
+      loop_a()
+  end
+end
+
+def body(msg, n) do
+  IO.puts("Ping!") # Static string
+  :timer.sleep(500)
+  send(:b {:msg, msg, n - 1})
+end
+```
+
++++
+
+```
+def loop_a
+  receive do
+    :stop -> 
+      :ok
+    {:msg, msg, 0} ->
+      loop_a()
+    {:msg, msg, n} ->
+      body(msg, n, "Ping #{n}!")
+      loop_a()
+  end
+end
+
+def body(msg, n, str) do
+  IO.puts(str) # generalize on string
+  :timer.sleep(500)
+  send(:b, {:msg, msg, n - 1})
+end
+```
+
+
++++
+
+draw inspiration from JS land
+
+<img src="images/jarvis-annotated.jpg" class="plain" />
+
++++
+
+### Switch to different syntax
+
+- Erlang to Elixir and vice versa
+- ElixirScript: Elixir to JS
+- Go2Elixir.. anyone ?
+
+---
+
+# TL;DPA
+
++++
+
+## pros for codemods
+
+  - improve editor (tools)
+  - improve DX by doing more;
+    - fully automated generator
+    - when installing / starting to use libs
+  - get a better understading of the language/tools
+
++++
+
+## drawbacks (cons)
+
+  - takes more time/effort to get right
+  - refactorings are perhaps not often used?
+  - not everything is solvable with codemods
+
+---
+
+# Thanks
+
+- [Lucas San Román (Dorgan)](https://github.com/doorgan) <img src="images/dorgan_avatar.png"  height=35 class="plain" />
+- [Arjan Scherpenisse](https://github.com/arjan) <img src="images/arjan_avatar.jpg" height=35 class="plain" />
+- [Wojtek Mach](https://github.com/wojtekmach) <img src="images/wojtek_avatar.jpg" height=35 class="plain" />
+- [José Valim](https://github.com/josevalim) <img src="images/jose_avatar.jpg" height=35 class="plain" />
+- [XPay](https://xpay.de/en) <img src="images/xpay_logo.png" height=25 class="plain" />
+
+---
+
+Thank for listening
+
+###### Tonći Galić
+
+###### @Tuxified
+
+https://github.com/Tuxified/elixirconfeu-2022-talk
+
+![You have the power](images/you_have_the_power.gif) <!-- .element: class="fragment" data-fragment-index="1" -->
+
 
           </script>
         </section>
@@ -79,8 +603,10 @@
 
     <script>
       // More info https://github.com/hakimel/reveal.js#configuration
+
       Reveal.initialize({
         history: true,
+        controls: false,
 
         // More info https://github.com/hakimel/reveal.js#dependencies
         dependencies: [
