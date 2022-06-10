@@ -83,18 +83,26 @@
 ---
 
 
-# Agenda
+# Disclaimer
 
-- what we won't talk about
-- TL;DR: 
+what we won't talk about
+- GitHub copilot
+- LowCode/NoCode platforms
+- ... etc, your job is safe 
+
++++
+
+## Not losing your job
+
+<img src="images/Terminator-Laser.gif" class="plain" />
 
 +++
 
 ## TL;DR:
 
-```
+```elixir
 source 
-|> Code.parse_to_AST() 
+|> Code.parse() 
 |> Code.transform() 
 |> Code.to_source()
 ```
@@ -183,7 +191,7 @@ note:
 
 +++
 
-```elixir
+```elixir [1|3-5|3-6]
 sum(1, 3)
 
 quote do
@@ -216,7 +224,7 @@ a.k.a. "CodeMod"
 
 +++
 
-```elixir
+```elixir [1-3|4|8-9|5|1-9]
 def patch_it(file)do
   contents = File.read!(file)
   {:ok, ast} = Code.string_to_quoted(contents)
@@ -287,7 +295,7 @@ note:
 
 ## And creates Sourceror package
 
-<img src="images/excited-picard.gif" class=plain />
+<img src="images/picard-cant-wait.gif" class=plain />
 
 +++
 
@@ -328,15 +336,24 @@ defmodule DoubleNegation do
 end
 ```
 
++++
+
+# Other Sourceror APIs
+
+- Zipper
+- Patcher
+
 ---
 
 # Examples of Usage
+
+<img src="images/excited-picard.gif" class=plain />
 
 +++
 
 ## Don't make me think (/work)
 
-- `mix phx.gen.live ...` -> automatically add routes to router
+- `mix phx.gen.live ...`   -> automatically add routes to router
 
 +++
 
@@ -491,7 +508,7 @@ end
 
 (take a look at Wrangler)
 
-```
+```elixir [1-17|14|8|1-17]
 def loop_a
   receive do
     :stop -> 
@@ -513,7 +530,7 @@ end
 
 +++
 
-```
+```elixir [1-17|13-14|8|1-17]
 def loop_a
   receive do
     :stop -> 
