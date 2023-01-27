@@ -2,7 +2,7 @@
 
 In this repo you'll find the presentation for talk titled above, along with things mentioned in (and related to) that talk.
 
-You should be able to view the preso at: https://tuxified.github.io/elixirconfeu-2022-talk/
+You should be able to view the slides at: https://tuxified.github.io/elixirconfeu-2022-talk/ and a video of the talk at: https://www.youtube.com/watch?v=doPbkvkajtI
 
 
 ## Mentions
